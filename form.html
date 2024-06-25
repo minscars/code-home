@@ -1,0 +1,292 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Advanced Search, Update and Add Customer Example</title>
+    <link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/4.0.0/css/bootstrap.min.css">
+</head>
+<body>
+    <form id="searchForm">
+        <label for="inputString">Enter customer id:</label>
+        <input type="text" id="inputString" name="inputString">
+        <br>
+        <label for="minAge">Min Age:</label>
+        <input type="number" id="minAge" name="minAge">
+        <label for="maxAge">Max Age:</label>
+        <input type="number" id="maxAge" name="maxAge">
+        <br>
+        <label for="city">City:</label>
+        <input type="text" id="city" name="city">
+        <br>
+        <label for="state">State:</label>
+        <input type="text" id="state" name="state">
+        <br>
+        <input type="submit" value="Search">
+    </form>
+    <button id="resetForm">Clear</button>
+    <div id="result"></div>
+    <nav aria-label="...">
+        <ul class="pagination" id="pagination">
+            <!-- Pagination items will be generated here -->
+        </ul>
+    </nav>
+
+    <form id="updateForm" style="display:none;">
+        <h3>Update Customer Information</h3>
+        <input type="hidden" id="updateId" name="updateId">
+        <label for="updateName">Name:</label>
+        <input type="text" id="updateName" name="updateName">
+        <br>
+        <label for="updateAge">Age:</label>
+        <input type="number" id="updateAge" name="updateAge">
+        <br>
+        <label for="updateEmail">Email:</label>
+        <input type="email" id="updateEmail" name="updateEmail">
+        <br>
+        <label for="updateStreet">Street:</label>
+        <input type="text" id="updateStreet" name="updateStreet">
+        <br>
+        <label for="updateCity">City:</label>
+        <input type="text" id="updateCity" name="updateCity">
+        <br>
+        <label for="updateState">State:</label>
+        <input type="text" id="updateState" name="updateState">
+        <br>
+        <label for="updatePostalCode">Postal Code:</label>
+        <input type="text" id="updatePostalCode" name="updatePostalCode">
+        <br>
+        <label for="updatePhone">Phone:</label>
+        <input type="text" id="updatePhone" name="updatePhone">
+        <br>
+        <input type="submit" value="Update">
+    </form>
+
+    <form id="addForm">
+        <h3>Add New Customer</h3>
+        <label for="addName">Name:</label>
+        <input type="text" id="addName" name="addName">
+        <br>
+        <label for="addAge">Age:</label>
+        <input type="number" id="addAge" name="addAge">
+        <br>
+        <label for="addEmail">Email:</label>
+        <input type="email" id="addEmail" name="addEmail">
+        <br>
+        <label for="addStreet">Street:</label>
+        <input type="text" id="addStreet" name="addStreet">
+        <br>
+        <label for="addCity">City:</label>
+        <input type="text" id="addCity" name="addCity">
+        <br>
+        <label for="addState">State:</label>
+        <input type="text" id="addState" name="addState">
+        <br>
+        <label for="addPostalCode">Postal Code:</label>
+        <input type="text" id="addPostalCode" name="addPostalCode">
+        <br>
+        <label for="addPhone">Phone:</label>
+        <input type="text" id="addPhone" name="addPhone">
+        <br>
+        <input type="submit" value="Add">
+    </form>
+
+    <script>
+        const searchForm = document.getElementById('searchForm');
+        const resultDiv = document.getElementById('result');
+        const paginationDiv = document.getElementById('pagination');
+
+        let currentPage = 1;
+        const limit = 10;
+
+        searchForm.addEventListener('submit', function(event) {
+            event.preventDefault();
+            searchCustomers(1);
+        });
+
+        function searchCustomers(page) {
+            const inputString = document.getElementById('inputString').value;
+            const minAge = document.getElementById('minAge').value;
+            const maxAge = document.getElementById('maxAge').value;
+            const city = document.getElementById('city').value;
+            const state = document.getElementById('state').value;
+
+            fetch('config/security.json')
+                .then(response => response.json())
+                .then(data => {
+                    const securityCode = data["security code"];
+                    const searchCriteria = {
+                        action: 'search',
+                        securityCode: securityCode,
+                        customerId: inputString,
+                        minAge: minAge,
+                        maxAge: maxAge,
+                        city: city,
+                        state: state,
+                        page: page,
+                        limit: limit
+                    };
+
+                    fetch('process.php', {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json'
+                        },
+                        body: JSON.stringify(searchCriteria)
+                    })
+                    .then(response => response.json())
+                    .then(data => {
+                        if (data.status === 'success') {
+                            displayResults(data.data);
+                            setupPagination(data.total_pages, data.current_page);
+                        } else {
+                            resultDiv.innerHTML = `<p>${data.message}</p>`;
+                        }
+                    })
+                    .catch(error => console.error('Error:', error));
+                })
+                .catch(error => console.error('Error loading security code:', error));
+        }
+
+        function displayResults(customers) {
+            let html = '';
+            customers.forEach(customer => {
+                html += `
+                    <div>
+                        <p>Name: ${customer.name}</p>
+                        <p>Age: ${customer.age}</p>
+                        <p>Email: ${customer.email}</p>
+                        <p>Address: ${customer.address.street}, ${customer.address.city}, ${customer.address.state}, ${customer.address.postalCode}</p>
+                        <p>Phone: ${customer.phoneNumbers}</p>
+                        <button onclick="editCustomer(${customer.id}, '${customer.name}', ${customer.age}, '${customer.email}', '${customer.address.street}', '${customer.address.city}', '${customer.address.state}', '${customer.address.postalCode}', '${customer.phoneNumbers}')">Edit</button>
+                    </div>
+                    <hr>
+                `;
+            });
+            resultDiv.innerHTML = html;
+        }
+
+        function setupPagination(totalPages, currentPage) {
+            let paginationHtml = '';
+
+            paginationHtml += `
+                <li class="page-item ${currentPage === 1 ? 'disabled' : ''}">
+                    <a class="page-link" href="#" tabindex="-1" aria-disabled="${currentPage === 1}" onclick="searchCustomers(${currentPage - 1})">Previous</a>
+                </li>
+            `;
+
+            for (let i = 1; i <= totalPages; i++) {
+                paginationHtml += `
+                    <li class="page-item ${i === currentPage ? 'active' : ''}">
+                        <a class="page-link" href="#" onclick="searchCustomers(${i})">${i}</a>
+                    </li>
+                `;
+            }
+
+            paginationHtml += `
+                <li class="page-item ${currentPage === totalPages ? 'disabled' : ''}">
+                    <a class="page-link" href="#" aria-disabled="${currentPage === totalPages}" onclick="searchCustomers(${currentPage + 1})">Next</a>
+                </li>
+            `;
+
+            paginationDiv.innerHTML = paginationHtml;
+        }
+
+        function editCustomer(id, name, age, email, street, city, state, postalCode, phone) {
+            document.getElementById('updateId').value = id;
+            document.getElementById('updateName').value = name;
+            document.getElementById('updateAge').value = age;
+            document.getElementById('updateEmail').value = email;
+            document.getElementById('updateStreet').value = street;
+            document.getElementById('updateCity').value = city;
+            document.getElementById('updateState').value = state;
+            document.getElementById('updatePostalCode').value = postalCode;
+            document.getElementById('updatePhone').value = phone;
+            document.getElementById('updateForm').style.display = 'block';
+        }
+
+        document.getElementById('updateForm').addEventListener('submit', function(event) {
+            event.preventDefault();
+
+            const updateCustomer = {
+                action: 'update',
+                id: document.getElementById('updateId').value,
+                name: document.getElementById('updateName').value,
+                age: document.getElementById('updateAge').value,
+                email: document.getElementById('updateEmail').value,
+                street: document.getElementById('updateStreet').value,
+                city: document.getElementById('updateCity').value,
+                state: document.getElementById('updateState').value,
+                postalCode: document.getElementById('updatePostalCode').value,
+                phone: document.getElementById('updatePhone').value
+            };
+
+            fetch('process.php', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify(updateCustomer)
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.status === 'success') {
+                    alert('Customer updated successfully.');
+                    document.getElementById('updateForm').style.display = 'none';
+                    searchCustomers(currentPage);
+                } else {
+                    alert(`Error: ${data.message}`);
+                }
+            })
+            .catch(error => console.error('Error:', error));
+        });
+
+        document.getElementById('addForm').addEventListener('submit', function(event) {
+            event.preventDefault();
+
+            const newCustomer = {
+                action: 'add',
+                name: document.getElementById('addName').value,
+                age: document.getElementById('addAge').value,
+                email: document.getElementById('addEmail').value,
+                street: document.getElementById('addStreet').value,
+                city: document.getElementById('addCity').value,
+                state: document.getElementById('addState').value,
+                postalCode: document.getElementById('addPostalCode').value,
+                phone: document.getElementById('addPhone').value
+            };
+
+            fetch('process.php', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify(newCustomer)
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.status === 'success') {
+                    alert('Customer added successfully.');
+                    document.getElementById('addForm').reset();
+                    searchCustomers(currentPage);
+                } else {
+                    alert(`Error: ${data.message}`);
+                }
+            })
+            .catch(error => console.error('Error:', error));
+        });
+
+        document.getElementById('resetForm').addEventListener('click', function(e) {
+            e.preventDefault();
+            document.getElementById('inputString').value = '';
+            document.getElementById('minAge').value = '';
+            document.getElementById('maxAge').value = '';
+            document.getElementById('city').value = '';
+            document.getElementById('state').value = '';
+            resultDiv.innerHTML = '';
+            paginationDiv.innerHTML = '';
+            document.getElementById('updateForm').style.display = 'none';
+        });
+    </script>
+</body>
+</html>
